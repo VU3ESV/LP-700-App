@@ -5,7 +5,7 @@ import AppKit
 // server URL is configured, and on demand from the toolbar shield button.
 struct ConnectionSheet: View {
     @ObservedObject var vm: MeterViewModel
-    @AppStorage("serverURL") private var persistedURL: String = ""
+    @AppStorage("serverURL", store: AppDefaults.store) private var persistedURL: String = ""
 
     @State private var urlString: String = ""
     @State private var testStatus: TestStatus = .idle

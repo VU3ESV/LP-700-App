@@ -4,14 +4,19 @@ import AppKit
 import UserNotifications
 #endif
 
-@main
-struct LP700App: App {
+/// Standalone-app entry. In the suite this type is unused (the container owns
+/// the process); the plugin path is `LP700Plugin`. Kept `public` so the thin
+/// `LP700AppMain` executable target can call `.main()` on it.
+public struct LP700StandaloneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var vm = MeterViewModel()
-    @AppStorage("serverURL") private var serverURL: String = ""
-    @AppStorage("menuBarItemEnabled") private var menuBarEnabled: Bool = true
 
-    var body: some Scene {
+    public init() {}
+
+    @AppStorage("serverURL", store: AppDefaults.store) private var serverURL: String = ""
+    @AppStorage("menuBarItemEnabled", store: AppDefaults.store) private var menuBarEnabled: Bool = true
+
+    public var body: some Scene {
         // `id: "main"` lets `Environment(\.openWindow)` reach this scene
         // by name from the MenuBarExtra popover. Without an id, the
         // popover's "Show LP-700 Window" button could only `NSApp.activate`
