@@ -3,7 +3,7 @@ import AppKit
 
 struct ContentView: View {
     @ObservedObject var vm: MeterViewModel
-    @AppStorage("serverURL") private var persistedURL: String = ""
+    @AppStorage("serverURL", store: AppDefaults.store) private var persistedURL: String = ""
 
     var body: some View {
         Group {

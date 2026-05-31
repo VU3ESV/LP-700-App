@@ -286,7 +286,7 @@ final class MeterViewModel: ObservableObject {
         let now = Date()
         guard now.timeIntervalSince(lastAlarmAt) > 30 else { return }
         lastAlarmAt = now
-        let enabled = UserDefaults.standard.object(forKey: "alarmNotifications") as? Bool ?? true
+        let enabled = AppDefaults.resolved.object(forKey: "alarmNotifications") as? Bool ?? true
         guard enabled else { return }
         postAlarmNotification(swr: data.swr)
     }
