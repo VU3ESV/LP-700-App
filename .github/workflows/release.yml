@@ -1,14 +1,17 @@
 name: Release
 
-# Triggered two ways, both of which produce a public GitHub Release:
-#   1. Push a `vX.Y.Z` tag — uses the tag as-is.
-#   2. Manual `workflow_dispatch` with a version input — the workflow
-#      creates the matching `vX.Y.Z` tag at the run's commit and cuts a
-#      Release pointed at it. Set `prerelease: true` if you don't want
-#      the new tag to become "latest".
+# Triggered three ways, all of which produce a public GitHub Release:
+#   1. Push to `main` (i.e. after a PR merge) — auto-bumps the latest
+#      clean `vX.Y.Z` tag by $BUMP (patch by default; flip to minor/major
+#      below) and cuts a Release at the merge commit.
+#   2. Push a `vX.Y.Z` tag — uses the tag as-is.
+#   3. Manual `workflow_dispatch` with a version input — creates the
+#      matching `vX.Y.Z` tag at the run's commit and cuts a Release.
+#      Set `prerelease: true` to keep the new tag out of "latest".
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*'
   workflow_dispatch:
@@ -23,8 +26,20 @@ on:
         type: boolean
         default: false
 
+# Only one release run at a time on a given ref. Two PRs merging back-to-back
+# will queue rather than race for the same next-version tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
+
+env:
+  # Auto-bump strategy for push-to-main runs: patch | minor | major.
+  # Tag-push and workflow_dispatch paths ignore this — they use the tag /
+  # input verbatim.
+  BUMP: patch
 
 jobs:
   release:
@@ -38,36 +53,84 @@ jobs:
       - name: Resolve version + tag
         id: ver
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
+          set -euo pipefail
+          EVENT="${{ github.event_name }}"
+          REF="${GITHUB_REF}"
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
             V="${{ inputs.version }}"
-          else
+          elif [ "$EVENT" = "push" ] && [[ "$REF" == refs/tags/* ]]; then
             V="${GITHUB_REF_NAME#v}"
+          else
+            # push to main — auto-bump from the latest clean semver tag.
+            # Skip if HEAD already has a clean release tag (e.g. someone
+            # pushed `main` and the tag together in one go — the tag-push
+            # event will handle that release).
+            if git tag --points-at HEAD | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "HEAD already tagged with a release version. Skipping auto-release."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # The `v[0-9]*` glob excludes the stray `vv0.1.x` and `vV0.1.x`
+            # tags that crept into the repo from earlier double-prefix
+            # dispatch input mistakes.
+            LATEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1)
+            if [ -z "$LATEST" ]; then
+              V="0.1.0"
+            else
+              LATEST_NO_V="${LATEST#v}"
+              IFS=. read -r MAJOR MINOR PATCH <<< "$LATEST_NO_V"
+              case "$BUMP" in
+                major) V="$((MAJOR + 1)).0.0" ;;
+                minor) V="$MAJOR.$((MINOR + 1)).0" ;;
+                patch|*) V="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+              esac
+            fi
+
+            # Defensive bump-until-untaken in case the computed version
+            # somehow already exists.
+            while git rev-parse "refs/tags/v$V" >/dev/null 2>&1; do
+              IFS=. read -r MAJOR MINOR PATCH <<< "$V"
+              case "$BUMP" in
+                major) V="$((MAJOR + 1)).0.0" ;;
+                minor) V="$MAJOR.$((MINOR + 1)).0" ;;
+                patch|*) V="$MAJOR.$MINOR.$((PATCH + 1))" ;;
+              esac
+            done
           fi
+
           # `softprops/action-gh-release` creates the tag if it does not
           # exist yet, so we just need a stable `vX.Y.Z` string.
           echo "value=$V" >> "$GITHUB_OUTPUT"
           echo "tag=v$V" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "Building release v$V"
 
       - name: Show toolchain
+        if: steps.ver.outputs.skip != 'true'
         run: |
           xcodebuild -version
           swift --version
 
       - name: Test
+        if: steps.ver.outputs.skip != 'true'
         run: swift test
 
       - name: Build universal .app
+        if: steps.ver.outputs.skip != 'true'
         env:
           VERSION: ${{ steps.ver.outputs.value }}
         run: ./scripts/build-app.sh
 
       - name: Build DMG
+        if: steps.ver.outputs.skip != 'true'
         env:
           VERSION: ${{ steps.ver.outputs.value }}
         run: ./scripts/make-dmg.sh
 
       - name: Compute checksums
+        if: steps.ver.outputs.skip != 'true'
         working-directory: dist
         run: |
           shasum -a 256 LP-700-App-${{ steps.ver.outputs.value }}.dmg \
@@ -75,6 +138,7 @@ jobs:
           cat LP-700-App-${{ steps.ver.outputs.value }}.dmg.sha256
 
       - name: Upload artifacts (workflow-scoped, for in-flight inspection)
+        if: steps.ver.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: LP-700-App-${{ steps.ver.outputs.value }}
@@ -84,6 +148,7 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub release
+        if: steps.ver.outputs.skip != 'true'
         uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.ver.outputs.value }}
