@@ -11,10 +11,10 @@ let package = Package(
         .library(name: "LP700App", targets: ["LP700App"]),
     ],
     dependencies: [
-        // Git URL (not a sibling path) so CI — which checks out only this repo —
-        // can resolve it. The Amateur Radio Suite container, as the root package,
-        // overrides this with its local `../RadioPluginKit` path for suite dev.
-        .package(url: "https://github.com/VU3ESV/RadioPluginKit.git", from: "1.0.0"),
+        // RadioPluginKit is consumed as a published library by Git URL, so both
+        // this repo's CI (which checks out only this repo) and the suite container
+        // resolve the same tag — no sibling checkout required.
+        .package(url: "https://github.com/VU3ESV/RadioPluginKit.git", from: "1.1.0"),
     ],
     targets: [
         .target(
