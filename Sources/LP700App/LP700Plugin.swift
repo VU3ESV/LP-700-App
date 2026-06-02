@@ -6,12 +6,16 @@ import RadioPluginKit
 /// while keeping the suite's public surface to just this one type.
 @MainActor
 public final class LP700Plugin: RadioPlugin {
-    public static let metadata = PluginMetadata(
+    public static let manifest: RadioPluginManifest? = RadioPluginManifest(
         id: "lp700",
-        title: "LP-700",
+        name: "LP-700",
+        version: "1.0",
+        isolation: .inProcess,                       // first-party, linked into the host
+        capabilities: [.networkClient, .notifications],
         systemImage: "gauge.with.dots.needle.bottom.50percent",
-        version: "1.0"
+        author: "VU3ESV"
     )
+    public static var metadata: PluginMetadata { manifest!.metadata }
 
     private let host: PluginHost
     private let vm: MeterViewModel
