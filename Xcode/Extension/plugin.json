@@ -1,0 +1,12 @@
+{
+  "id": "org.vu3esv.radiosuite.LP700",
+  "name": "LP-700",
+  "version": "1.0.0",
+  "sdkVersion": "1.2",
+  "minHostVersion": "1.0",
+  "isolation": "out-of-process",
+  "capabilities": ["network.client", "notifications"],
+  "systemImage": "gauge.with.dots.needle.bottom.50percent",
+  "author": "VU3ESV",
+  "homepage": "https://github.com/VU3ESV/LP-700-App"
+}
