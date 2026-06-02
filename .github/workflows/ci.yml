@@ -28,3 +28,9 @@ jobs:
         env:
           VERSION: ci-${{ github.sha }}
         run: ./scripts/build-app.sh
+
+      - name: Build plugin package (.appex / .radioplugin)
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          ./scripts/make-radioplugin.sh
+          ls -lh dist/LP700.radioplugin
