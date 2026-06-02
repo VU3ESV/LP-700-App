@@ -129,13 +129,25 @@ jobs:
           VERSION: ${{ steps.ver.outputs.value }}
         run: ./scripts/make-dmg.sh
 
+      - name: Build plugin package (.appex / .radioplugin)
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          ./scripts/make-radioplugin.sh
+          cp dist/LP700.radioplugin dist/LP-700-App-${{ steps.ver.outputs.value }}.radioplugin
+
       - name: Compute checksums
         if: steps.ver.outputs.skip != 'true'
         working-directory: dist
         run: |
           shasum -a 256 LP-700-App-${{ steps.ver.outputs.value }}.dmg \
             > LP-700-App-${{ steps.ver.outputs.value }}.dmg.sha256
-          cat LP-700-App-${{ steps.ver.outputs.value }}.dmg.sha256
+          shasum -a 256 LP-700-App-${{ steps.ver.outputs.value }}.radioplugin \
+            > LP-700-App-${{ steps.ver.outputs.value }}.radioplugin.sha256
+          cat LP-700-App-${{ steps.ver.outputs.value }}.dmg.sha256 \
+              LP-700-App-${{ steps.ver.outputs.value }}.radioplugin.sha256
 
       - name: Upload artifacts (workflow-scoped, for in-flight inspection)
         if: steps.ver.outputs.skip != 'true'
@@ -145,6 +157,8 @@ jobs:
           path: |
             dist/LP-700-App-*.dmg
             dist/LP-700-App-*.dmg.sha256
+            dist/LP-700-App-*.radioplugin
+            dist/LP-700-App-*.radioplugin.sha256
           retention-days: 30
 
       - name: Create GitHub release
@@ -177,3 +191,5 @@ jobs:
           files: |
             dist/LP-700-App-*.dmg
             dist/LP-700-App-*.dmg.sha256
+            dist/LP-700-App-*.radioplugin
+            dist/LP-700-App-*.radioplugin.sha256
