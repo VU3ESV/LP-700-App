@@ -4,23 +4,62 @@ import AppKit
 struct ContentView: View {
     @ObservedObject var vm: MeterViewModel
     @AppStorage("serverURL", store: AppDefaults.store) private var persistedURL: String = ""
+    /// When hosted out-of-process in the Suite there is no window title bar, so `.toolbar`
+    /// items never appear. In that case render the same controls inline (see `embeddedToolbar`).
+    var embedded: Bool = false
 
     var body: some View {
-        Group {
-            if vm.connectionSheetOpen || (!vm.hasConfiguredServer && persistedURL.isEmpty) {
-                ConnectionPlaceholder(vm: vm)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                meterPane
+        VStack(spacing: 0) {
+            if embedded { embeddedToolbar }
+            Group {
+                if vm.connectionSheetOpen || (!vm.hasConfiguredServer && persistedURL.isEmpty) {
+                    ConnectionPlaceholder(vm: vm)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    meterPane
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(vm.serverTitle)
-        .toolbar { mainToolbar }
+        .toolbar { if !embedded { mainToolbar } }
         .sheet(isPresented: $vm.connectionSheetOpen) {
             ConnectionSheet(vm: vm) { vm.connectionSheetOpen = false }
         }
-        .frame(minWidth: 380, minHeight: 520)
+        // Fill the host: keep a sensible minimum for the standalone window, but expand to fill
+        // the Amateur Radio Suite's host pane (out-of-process) instead of floating undersized.
+        .frame(minWidth: 380, maxWidth: .infinity, minHeight: 520, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+
+    /// Inline equivalent of `mainToolbar`, shown when hosted in the Suite (no window toolbar).
+    private var embeddedToolbar: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ConnectionBadge(state: vm.connection, host: hostHint)
+                    .equatable()
+                    .help(hostHint)
+                Spacer(minLength: 12)
+                BackendBadge(backend: vm.backend)
+                    .equatable()
+                Spacer(minLength: 12)
+                Button { vm.connectionSheetOpen = true } label: {
+                    Image(systemName: "network.badge.shield.half.filled")
+                }
+                .help("Server connection settings")
+                Button {
+                    vm.toggleSetup()
+                    if vm.setupOpen { Task { await vm.refreshLogLevel() } }
+                } label: {
+                    Image(systemName: vm.setupOpen ? "wrench.and.screwdriver.fill" : "wrench.and.screwdriver")
+                }
+                .help("Open SETUP overlay")
+            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            Divider()
+        }
     }
 
     // MARK: - Toolbar
@@ -121,7 +160,7 @@ struct ContentView: View {
             }
         }
         .padding(10)
-        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color(NSColor.windowBackgroundColor))
     }
 
