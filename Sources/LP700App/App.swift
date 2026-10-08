@@ -4,6 +4,14 @@ import AppKit
 import UserNotifications
 #endif
 
+/// The per-app part of UpdateChecker.swift (that file is kept identical to
+/// the copy in VU2CPL's other macOS apps — see its header). The standalone
+/// app checks this repo's releases; the suite plugin never schedules a check.
+extension UpdateChecker.Configuration {
+    static let app = UpdateChecker.Configuration(
+        repository: "VU3ESV/LP-700-App", appName: "LP-700-App")
+}
+
 /// Standalone-app entry. In the suite this type is unused (the container owns
 /// the process); the plugin path is `LP700Plugin`. Kept `public` so the thin
 /// `LP700AppMain` executable target can call `.main()` on it.
@@ -11,7 +19,12 @@ public struct LP700StandaloneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var vm = MeterViewModel()
 
-    public init() {}
+    public init() {
+        // About 10 s from now, then hourly: ask GitHub whether a newer
+        // release exists (at most once a day after a successful answer;
+        // off via Preferences ▸ Updates; never for a 0.0.0-dev build).
+        UpdateChecker.shared.scheduleAutomaticCheck()
+    }
 
     @AppStorage("serverURL", store: AppDefaults.store) private var serverURL: String = ""
     @AppStorage("menuBarItemEnabled", store: AppDefaults.store) private var menuBarEnabled: Bool = true
@@ -93,6 +106,10 @@ public struct LP700StandaloneApp: App {
 
     @CommandsBuilder
     private var menuCommands: some Commands {
+        CommandGroup(after: .appInfo) {
+            UpdateChecker.CheckButton()
+        }
+
         CommandGroup(replacing: .newItem) { }
 
         CommandGroup(after: .appSettings) {

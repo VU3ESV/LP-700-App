@@ -224,8 +224,17 @@ Specifics worth calling out:
 - `SetupOverlay` is rendered into the same panel area when
   `vm.setupOpen` is true, replacing `PowerSWRView`. Same compositional
   choice as the embedded web client (which switches to a `<dialog>`).
-- `PreferencesView` is three tabs (Server / Notifications / Display)
-  in the standard `Settings` scene.
+- `PreferencesView` is four tabs (Server / Notifications / Display /
+  Updates) in the standard `Settings` scene.
+- `UpdateChecker` (standalone app only) asks GitHub's
+  `releases/latest` for VU3ESV/LP-700-App about 10 s after launch and
+  re-evaluates hourly (at most one successful check per 24 h), plus the
+  **Check for Updates…** item after About in the app menu. One anonymous
+  `URLSession` request on its own ephemeral session — it never touches
+  the WebSocket or `ConfigClient`, and `LP700Plugin` never schedules it.
+  The file is shared verbatim with VU2CPL's other macOS apps; the
+  per-app part is the `UpdateChecker.Configuration.app` extension in
+  `App.swift`.
 - `MenuBarLabel` + `MenuBarContent` composes the `MenuBarExtra`. The
   label is a 14-char-ish string with a connection dot and Avg power +
   SWR; clicking opens a popover with the full readout block.
@@ -290,6 +299,9 @@ server's order changes, those tests fail loudly.
 | `serverURL`          | String | (empty — opens sheet)    |
 | `alarmNotifications` | Bool   | `true`                   |
 | `menuBarItemEnabled` | Bool   | `true`                   |
+| `UpdateCheck.automatic`  | Bool   | `true` (absent = on)  |
+| `UpdateCheck.lastCheck`  | Double | time of the last *successful* update check |
+| `UpdateCheck.skippedTag` | String | release tag the user chose to skip |
 
 Notably **not** persisted: `setupOpen`, sticky peaks, `serverLogLevel`
 (the server itself doesn't persist this between restarts so we don't
@@ -316,7 +328,11 @@ either), `backend` (re-fetched on connect).
 ## 8. Tests
 
 `swift test` runs the WireProtocol suite in
-`Tests/LP700AppTests/WireProtocolTests.swift`:
+`Tests/LP700AppTests/WireProtocolTests.swift` and the update-check
+logic in `Tests/LP700AppTests/UpdateCheckerTests.swift` (version
+comparison, the automatic-check rule, success-only storing of the
+check time, the dev-build skip, parsing GitHub's answer — no network).
+The WireProtocol suite covers:
 
 - Telemetry / heartbeat / status / ack frames decode correctly
 - `command` frames encode to the exact expected bytes (with and

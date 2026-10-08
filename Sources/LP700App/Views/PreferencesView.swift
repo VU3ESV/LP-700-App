@@ -13,6 +13,8 @@ struct PreferencesView: View {
                 .tabItem { Label("Notifications", systemImage: "bell") }
             displayTab
                 .tabItem { Label("Display", systemImage: "display") }
+            updatesTab
+                .tabItem { Label("Updates", systemImage: "arrow.down.circle") }
         }
         .frame(width: 500, height: 300)
     }
@@ -89,6 +91,17 @@ struct PreferencesView: View {
             Text("Restart the app to apply menu-bar visibility changes.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+        .padding(20)
+    }
+
+    private var updatesTab: some View {
+        Form {
+            UpdateChecker.AutomaticToggle()
+            Text("About 10 seconds after launch, and then once a day while it keeps running, LP-700-App asks GitHub whether a newer release exists. Nothing is downloaded or installed — the dialog's Download button opens the release page. LP-700 ▸ Check for Updates… checks right away.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
     }

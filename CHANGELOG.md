@@ -8,6 +8,12 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **Update check** against this repo's GitHub releases: about 10 s after launch, then at
+  most once a day (one anonymous `api.github.com` request), the standalone app says when a
+  newer release is out — Download (opens the release page) / Skip This Version / Remind Me
+  Later. **LP-700 ▸ Check for Updates…** checks on demand; **Preferences → Updates** turns
+  the automatic check off. Never downloads or installs anything; silent when offline;
+  development builds (`0.0.0-dev`) never check on their own. The suite plugin never checks.
 - **Plugin build & release pipeline** ([CONVERTING-A-PLUGIN.md §7](https://github.com/VU3ESV/AmateurRadioSuite/blob/main/docs/CONVERTING-A-PLUGIN.md)):
   CI now builds the `.appex`/`.radioplugin` on every PR (catching extension breakage early),
   and each release attaches `LP-700-App-<version>.radioplugin` (with its `.sha256`) alongside
