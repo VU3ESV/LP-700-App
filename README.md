@@ -118,7 +118,10 @@ and compares that release's tag with its own version. If the release is
 newer, a dialog shows its notes with **Download** (opens the release
 page in your browser), **Skip This Version** and **Remind Me Later**.
 Nothing is downloaded or installed automatically, and no other server is
-involved.
+involved. When the dialog appears on its own it does not take the
+keyboard or bring the app forward — whatever you are typing in keeps the
+keyboard — and none of its buttons is the default, so Return never opens
+the browser: **Download** needs a click, Esc is **Remind Me Later**.
 
 - **LP-700 ▸ Check for Updates…** checks right away and always reports
   (newer release, up to date, or why the check failed).

@@ -234,7 +234,10 @@ Specifics worth calling out:
   the WebSocket or `ConfigClient`, and `LP700Plugin` never schedules it.
   The file is shared verbatim with VU2CPL's other macOS apps; the
   per-app part is the `UpdateChecker.Configuration.app` extension in
-  `App.swift`.
+  `App.swift`. Its update window is a non-modal panel with no default
+  button; from an automatic check it is ordered front without
+  activating the app or becoming key, so a keystroke can never land in
+  it by surprise.
 - `MenuBarLabel` + `MenuBarContent` composes the `MenuBarExtra`. The
   label is a 14-char-ish string with a connection dot and Avg power +
   SWR; clicking opens a popover with the full readout block.

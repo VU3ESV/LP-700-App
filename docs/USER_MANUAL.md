@@ -239,7 +239,10 @@ Four tabs:
   exists. If so, a dialog shows the release notes with **Download**
   (opens the release page in your browser), **Skip This Version** and
   **Remind Me Later**. Nothing is downloaded or installed automatically;
-  a failed automatic check stays silent and is retried later.
+  a failed automatic check stays silent and is retried later. The
+  dialog never takes the keyboard when it appears on its own, and no
+  button is the default: Return does nothing, **Download** needs a
+  click, Esc is **Remind Me Later**.
 - **LP-700 ▸ Check for Updates…** (app menu, under About) checks right
   away and always reports the result.
 
