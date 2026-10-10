@@ -49,7 +49,9 @@ Mac-specific affordances:
 - **Native macOS notifications** — alert when `alarm_tripped` rises,
   throttled to one per 30 s.
 - **Preferences (⌘,)** — server status + Change/Reconnect/Disconnect
-  buttons, notifications toggle, menu-bar toggle.
+  buttons, notifications toggle, menu-bar toggle, update-check toggle.
+- **Update check** — tells you when a newer release is published on
+  GitHub (see [Updates](#updates)); never downloads anything itself.
 - **Keyboard shortcuts** — ⌘R range step, ⌘A alarm toggle, ⌘M LCD mode
   step, ⌘Y resync, ⌘. SETUP overlay, ⇧⌘1/2/3 force Peak Hold / Avg /
   Tune, **⌘K Connect to Server…**, **⇧⌘D Disconnect / Reconnect**.
@@ -105,6 +107,37 @@ the two can coexist on the same Pi.
 To change servers later: click the shield icon in the toolbar, choose
 **File → Connect to Server… (⌘K)**, or open **Preferences (⌘,) → Server
 → Change Server…**. To disconnect cleanly, hit **⇧⌘D**.
+
+## Updates
+
+The app tells you when a newer LP-700-App release is out. About
+10 seconds after launch, and then once a day while it keeps running, it
+makes one anonymous request to GitHub —
+`GET https://api.github.com/repos/VU3ESV/LP-700-App/releases/latest` —
+and compares that release's tag with its own version. If the release is
+newer, a dialog shows its notes with **Download** (opens the release
+page in your browser), **Skip This Version** and **Remind Me Later**.
+Nothing is downloaded or installed automatically, and no other server is
+involved. When the dialog appears on its own it does not take the
+keyboard or bring the app forward — whatever you are typing in keeps the
+keyboard — and none of its buttons is the default, so Return never opens
+the browser: **Download** needs a click, Esc is **Remind Me Later**.
+
+- **LP-700 ▸ Check for Updates…** checks right away and always reports
+  (newer release, up to date, or why the check failed).
+- **Preferences (⌘,) → Updates → Check for updates automatically**
+  turns the automatic check off (default on).
+- Automatic checks are silent when GitHub can't be reached; the time is
+  remembered only after a successful answer, so a failed attempt is
+  retried (at most once an hour) instead of waiting a day.
+- Development builds (`0.0.0-dev`, the default when `VERSION` isn't set)
+  never check on their own; the menu item still works.
+- Only the standalone app checks. Hosted as an Amateur Radio Suite
+  plugin, LP-700 never makes the request.
+
+To see the dialog against the real latest release, quit the app and run
+`open --env UPDATE_CHECK_TEST_CURRENT_VERSION=0.0.1 /Applications/LP-700-App.app`,
+then choose **Check for Updates…** (the variable is ignored unless set).
 
 ## Build from source
 
@@ -201,13 +234,14 @@ LP-700-App/
 ├── Package.swift            # Swift Package manifest (executable + tests)
 ├── Sources/LP700App/
 │   ├── App.swift            # @main, scenes (WindowGroup, Settings, MenuBarExtra)
+│   ├── UpdateChecker.swift  # GitHub release check (Check for Updates…)
 │   ├── Net/                 # WireProtocol, WSClient, ConfigClient
 │   ├── ViewModels/          # MeterViewModel
 │   ├── Views/               # ContentView, PowerSWRView, KeypadView,
 │   │                        # ConnectionSheet, PreferencesView, SetupOverlay,
 │   │                        # Panel
 │   └── MenuBar/             # MenuBarLabel + MenuBarContent popover
-├── Tests/LP700AppTests/     # WireProtocol decode/encode round-trips
+├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker logic
 ├── Resources/Info.plist     # bundle template (VERSION substituted at build time)
 ├── scripts/
 │   ├── build-app.sh         # universal release .app, ad-hoc signed

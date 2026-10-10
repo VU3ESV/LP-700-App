@@ -52,7 +52,8 @@ a real meter.
 LP-700-App/
 ├── Package.swift                       # SPM manifest (executable + tests)
 ├── Sources/LP700App/
-│   ├── App.swift                       # @main, scenes, menu commands
+│   ├── App.swift                       # @main, scenes, menu commands, UpdateChecker config
+│   ├── UpdateChecker.swift             # GitHub releases/latest check (shared verbatim with VU2CPL's apps)
 │   ├── Net/
 │   │   ├── WireProtocol.swift          # Snapshot, ServerFrame, ClientFrame
 │   │   ├── WSClient.swift              # actor; reconnect + heartbeat watchdog
@@ -70,7 +71,8 @@ LP-700-App/
 │   └── MenuBar/
 │       └── MenuBarContent.swift        # MenuBarExtra label + popover
 ├── Tests/LP700AppTests/
-│   └── WireProtocolTests.swift         # decode/encode round-trips + RangeNames canary
+│   ├── WireProtocolTests.swift         # decode/encode round-trips + RangeNames canary
+│   └── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
 ├── Resources/Info.plist                # bundle template (__VERSION__ substituted)
 ├── scripts/
 │   ├── build-app.sh                    # universal release .app, ad-hoc signed

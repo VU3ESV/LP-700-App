@@ -205,7 +205,7 @@ to issue.
 
 ![Preferences](screenshots/04-preferences.png)
 
-Three tabs:
+Four tabs:
 
 ### 5.1 Server
 
@@ -229,6 +229,22 @@ Three tabs:
 
 - **Show menu-bar live readout** (default: on). Controls whether the
   `MenuBarExtra` glance is inserted at all. Restart the app to apply.
+
+### 5.4 Updates
+
+- **Check for updates automatically** (default: on). About 10 s after
+  launch, and then once a day while the app keeps running, LP-700-App
+  asks GitHub (`api.github.com`, one anonymous request) whether a newer
+  release of [VU3ESV/LP-700-App](https://github.com/VU3ESV/LP-700-App/releases)
+  exists. If so, a dialog shows the release notes with **Download**
+  (opens the release page in your browser), **Skip This Version** and
+  **Remind Me Later**. Nothing is downloaded or installed automatically;
+  a failed automatic check stays silent and is retried later. The
+  dialog never takes the keyboard when it appears on its own, and no
+  button is the default: Return does nothing, **Download** needs a
+  click, Esc is **Remind Me Later**.
+- **LP-700 ▸ Check for Updates…** (app menu, under About) checks right
+  away and always reports the result.
 
 ---
 
@@ -263,6 +279,7 @@ app" — you don't need to keep the main window in front to monitor.
 | **⌘K** | Connect to Server… (open the connection sheet) |
 | **⇧⌘D** | Disconnect (if connected) / Reconnect (if offline) |
 | **⌘,** | Preferences |
+| — | LP-700 ▸ Check for Updates… |
 | **⌘Q** | Quit |
 
 ### Meter menu
