@@ -22,6 +22,13 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
   and each release attaches `LP-700-App-<version>.radioplugin` (with its `.sha256`) alongside
   the `.dmg`.
 
+### Changed
+- **Leaner local builds.** `scripts/install-local.sh` now builds only this Mac's architecture
+  and strips local symbols (`ARCHS=native STRIP=1`), halving compile time and cutting the
+  installed binary to about a fifth of the universal release's, for an install that never runs
+  on another Mac. Both knobs are new options of `scripts/build-app.sh`; its defaults
+  (universal, symbols kept) and therefore the released DMGs are unchanged.
+
 ## [0.1.5] — 2026-06-02
 ### Added
 - **Out-of-process plugin** ([#9](https://github.com/VU3ESV/LP-700-App/pull/9)): an
