@@ -28,9 +28,9 @@ and the absence of the LP-100A's vector-impedance view.
 swift test            # run unit tests
 swift run             # debug run, single-arch, fast iteration
 VERSION=$(git describe --tags --always) ./scripts/build-app.sh
-                      # universal release .app in dist/
+                      # universal release .app in dist/ (ARCHS=native: host arch only)
 VERSION=$(git describe --tags --always) ./scripts/install-local.sh
-                      # build + install to /Applications + strip quarantine
+                      # native, symbol-stripped build + install to /Applications
 open /Applications/LP-700-App.app
 ```
 
@@ -75,10 +75,10 @@ LP-700-App/
 │   └── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
 ├── Resources/Info.plist                # bundle template (__VERSION__ substituted)
 ├── scripts/
-│   ├── build-app.sh                    # universal release .app, ad-hoc signed
+│   ├── build-app.sh                    # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed
 │   ├── make-dmg.sh                     # DMG with /Applications symlink
 │   ├── make-icon.sh                    # AppIcon.icns from a 1024×1024 PNG
-│   └── install-local.sh                # build + ditto-copy to /Applications
+│   └── install-local.sh                # native, symbol-stripped build + ditto-copy to /Applications
 ├── .github/workflows/
 │   ├── ci.yml                          # build+test on every push/PR
 │   └── release.yml                     # tag-driven OR manual release

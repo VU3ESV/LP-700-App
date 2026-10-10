@@ -362,15 +362,19 @@ Not yet covered (acceptable gap):
 ## 9. Build & ship
 
 - **Universal binary** (arm64 + x86_64) via
-  `swift build -c release --arch arm64 --arch x86_64`.
+  `swift build -c release --arch arm64 --arch x86_64`. `ARCHS=native`
+  builds only the host slice (used for local installs).
 - **App bundle** assembled by `scripts/build-app.sh`: copies the
   binary into `Contents/MacOS/`, expands `Resources/Info.plist`
   template (substitutes `__VERSION__`), generates an `AppIcon.icns`
-  from a placeholder PNG, ad-hoc signs (`codesign --sign -`).
+  from a placeholder PNG, optionally strips local symbols (`STRIP=1` runs
+  `strip -x`, about 55% smaller; releases keep their symbol table so crash
+  reports stay symbolicatable), ad-hoc signs (`codesign --sign -`).
 - **DMG** built by `scripts/make-dmg.sh`: copies the `.app` plus a
   `/Applications` symlink to a staging dir, runs
   `hdiutil create ... -format UDZO`.
-- **Local install** via `scripts/install-local.sh`: builds, then
+- **Local install** via `scripts/install-local.sh`: builds the native
+  slice only with symbols stripped (`ARCHS=native STRIP=1`), then
   ditto-copies into `/Applications` with quarantine xattr stripped.
 - **Distribution**: ad-hoc-signed only. Users do
   `xattr -dr com.apple.quarantine` once after install. Notarization

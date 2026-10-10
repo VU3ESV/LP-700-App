@@ -90,9 +90,13 @@ VERSION=$(git describe --tags --always 2>/dev/null || echo 0.0.0-dev) \
 open /Applications/LP-700-App.app
 ```
 
-The script builds the universal release binary, ad-hoc signs it, then
-ditto-copies the bundle into `/Applications`. If `/Applications` requires
-elevated access (rare on personal Macs), it re-runs itself with `sudo`.
+The script builds a release binary for this Mac's architecture only (a local
+install never runs anywhere else, so the universal build would double the
+compile time and binary size for nothing), strips local symbols, ad-hoc signs
+it, then ditto-copies the bundle into `/Applications`. Set
+`ARCHS="arm64 x86_64"` to get a universal binary, or `STRIP=0` to keep
+symbols. If `/Applications` requires elevated access (rare on personal
+Macs), it re-runs itself with `sudo`.
 
 ### Configure
 
@@ -154,12 +158,13 @@ swift test
 swift run
 
 # Build a universal (arm64+x86_64) release .app bundle in dist/
+# (ARCHS=native builds only this Mac's slice; STRIP=1 strips local symbols)
 VERSION=$(git describe --tags --always) ./scripts/build-app.sh
 
 # Wrap the .app in a DMG with /Applications symlink
 VERSION=$(git describe --tags --always) ./scripts/make-dmg.sh
 
-# Build + install directly to /Applications
+# Build (native arch only) + install directly to /Applications
 VERSION=$(git describe --tags --always) ./scripts/install-local.sh
 ```
 
@@ -244,10 +249,10 @@ LP-700-App/
 ├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker logic
 ├── Resources/Info.plist     # bundle template (VERSION substituted at build time)
 ├── scripts/
-│   ├── build-app.sh         # universal release .app, ad-hoc signed
+│   ├── build-app.sh         # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed
 │   ├── make-dmg.sh          # DMG with /Applications symlink
 │   ├── make-icon.sh         # generates AppIcon.icns from a 1024×1024 PNG
-│   └── install-local.sh     # build + ditto-copy to /Applications
+│   └── install-local.sh     # native, symbol-stripped build + ditto-copy to /Applications
 └── .github/workflows/
     ├── ci.yml               # build+test on every push/PR
     └── release.yml          # builds DMG, creates Release on tag
