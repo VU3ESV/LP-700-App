@@ -112,6 +112,12 @@ To change servers later: click the shield icon in the toolbar, choose
 **File → Connect to Server… (⌘K)**, or open **Preferences (⌘,) → Server
 → Change Server…**. To disconnect cleanly, hit **⇧⌘D**.
 
+Loaded in the Amateur Radio Suite, the plugin behaves the same way: the
+first time it appears it asks for the server URL, and from then on it
+connects on its own. The Suite plugin keeps its own copy of the URL (the
+extension's sandbox), so configure it once there even if the standalone
+app is already set up.
+
 ## Updates
 
 The app tells you when a newer LP-700-App release is out. About
@@ -246,7 +252,7 @@ LP-700-App/
 │   │                        # ConnectionSheet, PreferencesView, SetupOverlay,
 │   │                        # Panel
 │   └── MenuBar/             # MenuBarLabel + MenuBarContent popover
-├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker logic
+├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker, configuredServerURL, WS reconnect
 ├── Resources/Info.plist     # bundle template (VERSION substituted at build time)
 ├── scripts/
 │   ├── build-app.sh         # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed

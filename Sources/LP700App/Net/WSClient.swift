@@ -29,6 +29,9 @@ actor WSClient {
     private var lastFrameAt: ContinuousClock.Instant = .now
     private var receiveTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
+    /// The pending retry after a drop. Kept apart from receive/watchdog because those are
+    /// the tasks handleDisconnect() cancels; the retry must never sleep on one of them.
+    private var reconnectTask: Task<Void, Never>?
     private let continuation: AsyncStream<Event>.Continuation
     nonisolated let events: AsyncStream<Event>
 
@@ -47,15 +50,17 @@ actor WSClient {
     }
 
     func start() {
-        guard receiveTask == nil else { return }
+        guard receiveTask == nil, reconnectTask == nil else { return }
         Task { await self.connectLoop() }
     }
 
     func stop() {
+        reconnectTask?.cancel()
         receiveTask?.cancel()
         watchdogTask?.cancel()
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
+        reconnectTask = nil
         receiveTask = nil
         watchdogTask = nil
         emit(.stateChanged(.disconnected))
@@ -69,9 +74,11 @@ actor WSClient {
 
     private func reconnectNow() async {
         task?.cancel(with: .goingAway, reason: nil)
+        reconnectTask?.cancel()
         receiveTask?.cancel()
         watchdogTask?.cancel()
         task = nil
+        reconnectTask = nil
         receiveTask = nil
         watchdogTask = nil
         backoffMs = 500
@@ -85,8 +92,8 @@ actor WSClient {
         task = new
         new.resume()
         lastFrameAt = .now
-        emit(.stateChanged(.connected))
-        backoffMs = 500
+        // `.connected` and the backoff reset wait for the first inbound frame (the server
+        // pushes a snapshot on accept): resume() succeeding proves nothing about the handshake.
         startReceive(on: new)
         startWatchdog()
     }
@@ -124,6 +131,10 @@ actor WSClient {
 
     private func handle(message: URLSessionWebSocketTask.Message) async {
         lastFrameAt = .now
+        if state != .connected {
+            emit(.stateChanged(.connected))
+            backoffMs = 500
+        }
         let data: Data?
         switch message {
         case .data(let d):
@@ -158,12 +169,19 @@ actor WSClient {
         watchdogTask?.cancel()
         receiveTask = nil
         watchdogTask = nil
-        emit(.stateChanged(.disconnected))
+        // A retry is pending, so the client is reconnecting, not disconnected (that is what
+        // stop() reports). Emit only on change: each attempt then yields one `.reconnecting`.
+        if state != .reconnecting { emit(.stateChanged(.reconnecting)) }
         let delay = backoffMs
         backoffMs = min(backoffMs * 2, maxBackoffMs)
-        try? await Task.sleep(nanoseconds: delay * 1_000_000)
-        if !Task.isCancelled {
-            await connectLoop()
+        // This method runs on the receive or watchdog task that was just cancelled above.
+        // Sleeping here threw immediately and `Task.isCancelled` was true, so the retry never
+        // ran and every connection got exactly one attempt. Retry from a fresh task instead.
+        reconnectTask?.cancel()
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay * 1_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.connectLoop()
         }
     }
 

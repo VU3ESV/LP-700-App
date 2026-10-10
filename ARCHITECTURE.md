@@ -165,22 +165,22 @@ sweep:
 
 ```
                        ┌─────────────┐
-                       │ disconnected│  (initial / after error)
+                       │ disconnected│  (initial / after stop())
                        └──────┬──────┘
                               │ start() / setBaseURL()
                        ┌──────▼──────┐
                        │ reconnecting│
                        └──────┬──────┘
-                              │ WS handshake OK
-                              │ + lastFrameAt = now
+                              │ first inbound frame
+                              │ (snapshot-on-connect)
                        ┌──────▼──────┐
        heartbeat       │  connected  │  ◄── frames reset lastFrameAt
        watchdog        └──┬──────────┘
        fires (>4 s)      │             ↑
        OR socket close   │             │
                          ▼             │
-                  handleDisconnect ────┘ via reconnect with backoff
-                  (backoff 0.5→10 s)
+                  handleDisconnect ────┘ retry on its own task
+                  (stays reconnecting; backoff 0.5→10 s)
 ```
 
 Specifics worth calling out:
@@ -193,8 +193,11 @@ Specifics worth calling out:
 - **Heartbeat watchdog** fires from a `Task.sleep(1s)` loop, not a
   high-resolution timer. 4 s timeout is 2× the server's default
   `heartbeat_ms` (2000); matches the embedded web client's behavior.
-- **Backoff** is 0.5, 1, 2, 4, 8, 10, 10, 10… seconds. Reset to 0.5 on
-  a successful connect.
+- **Backoff** is 0.5, 1, 2, 4, 8, 10, 10, 10… seconds. Reset to 0.5 when
+  the first frame arrives, not on `resume()`: a handshake that never
+  delivers a frame keeps backing off. The retry sleeps on its own task,
+  because the receive/watchdog task that detected the drop is cancelled by
+  then (sleeping there threw immediately and no retry ever ran).
 - **Sleep/wake.** `NSWorkspace.didWakeNotification` triggers a full
   `reconnect(serverURL:)` rather than just an inline `resync`. Slightly
   heavier but empirically more reliable when the lid was closed long
@@ -295,7 +298,11 @@ server's order changes, those tests fail loudly.
 
 ## 6. State persistence
 
-`UserDefaults` (suite: `com.vu3esv.lp700-app`):
+`UserDefaults`. Each entry point has its own store, so `serverURL` is
+entered once per store: the standalone app uses its own domain
+(`com.vu3esv.lp700-app`), the in-process plugin a per-plugin suite from
+`host.defaults(for:)`, and the hosted `.appex` the `UserDefaults.standard`
+of its sandbox container (`org.vu3esv.radiosuite.LP700`). Keys:
 
 | Key                  | Type   | Default                  |
 |----------------------|--------|--------------------------|
@@ -335,6 +342,14 @@ either), `backend` (re-fetched on connect).
 logic in `Tests/LP700AppTests/UpdateCheckerTests.swift` (version
 comparison, the automatic-check rule, success-only storing of the
 check time, the dev-build skip, parsing GitHub's answer — no network).
+`Tests/LP700AppTests/ServerURLTests.swift` pins
+`MeterViewModel.configuredServerURL(_:)`, the rule all three entry points
+(standalone bootstrap, in-process plugin, hosted `.appex`) use to decide
+whether a saved URL is worth connecting to: host required, surrounding
+whitespace ignored, scheme-only strings such as `localhost:8089` rejected.
+`Tests/LP700AppTests/WSClientReconnectTests.swift` connects to a closed
+port and expects a second attempt, and expects `stop()` to drop a pending
+retry.
 The WireProtocol suite covers:
 
 - Telemetry / heartbeat / status / ack frames decode correctly

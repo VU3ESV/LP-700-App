@@ -77,7 +77,7 @@ public struct LP700StandaloneApp: App {
 
     private func bootstrap() async {
         requestNotificationPermission()
-        if let url = URL(string: serverURL), url.host?.isEmpty == false {
+        if let url = MeterViewModel.configuredServerURL(serverURL) {
             await vm.start(serverURL: url)
         } else {
             // First launch — open the Connect sheet automatically.

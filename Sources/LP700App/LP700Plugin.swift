@@ -30,7 +30,7 @@ public final class LP700Plugin: RadioPlugin {
     }
 
     public func makeRootView() -> AnyView {
-        AnyView(ContentView(vm: vm))
+        AnyView(ContentView(vm: vm, hosted: true))
     }
 
     public func activate() {
@@ -39,8 +39,7 @@ public final class LP700Plugin: RadioPlugin {
         // Per-plugin defaults — `UserDefaults.standard` would collide with the
         // other plugins sharing the container's process.
         let store = host.defaults(for: Self.metadata.id)
-        if let s = store.string(forKey: "serverURL"),
-           let url = URL(string: s), url.host?.isEmpty == false {
+        if let url = MeterViewModel.configuredServerURL(store.string(forKey: "serverURL") ?? "") {
             Task { await vm.start(serverURL: url) }
         } else {
             vm.connectionSheetOpen = true
