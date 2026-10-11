@@ -266,8 +266,10 @@ it. The in-process `LP700Plugin.manifest` version is not used by the Suite.
   separate `reconnectTask` (cancelled by `stop()` / `reconnectNow()`).
   `.connected` and the backoff reset happen on the first inbound frame, not
   on `resume()`, and a pending retry reports `.reconnecting`, not
-  `.disconnected`. `WSClientReconnectTests` pins both; keep it green when
-  touching reconnect logic.
+  `.disconnected`. The disconnect handler ignores a socket that is no
+  longer current, so `stop()` is final and a replaced socket cannot
+  schedule a retry. `WSClientReconnectTests` pins all of this; keep it
+  green when touching reconnect logic.
 
 ## Sources / links
 
