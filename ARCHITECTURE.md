@@ -324,7 +324,7 @@ either), `backend` (re-fetched on connect).
 | Server unreachable on launch                     | `WSClient` enters `reconnecting`; toolbar badge yellow; backoff retries forever | Low — user can open shield to fix URL |
 | `/api/config` fetch fails                        | Falls back to `backend = "unknown"`, `allow_control = true`, default title  | Low |
 | `/api/log-level` fetch fails                     | Picker shows last-known value (initial `"error"`); POST is fire-and-forget  | Low |
-| WS drops mid-session                             | `handleDisconnect` → backoff reconnect; badge yellow then red briefly       | Low |
+| WS drops mid-session                             | `handleDisconnect` → retry on its own task with backoff; badge stays yellow (Reconnecting) until the next attempt's first frame       | Low |
 | Bad JSON frame                                   | `JSONDecoder` throws; emit `parseError`; OSLog warning; no disconnect       | Low |
 | Unknown frame `type`                             | `ServerFrame.unknown(type:)`; ignored                                       | Low |
 | `ack ok:false`                                   | Status banner shown; auto-dismisses after 5 s                               | Med — banner doesn't tie back to the issuing button |
@@ -348,8 +348,10 @@ check time, the dev-build skip, parsing GitHub's answer — no network).
 whether a saved URL is worth connecting to: host required, surrounding
 whitespace ignored, scheme-only strings such as `localhost:8089` rejected.
 `Tests/LP700AppTests/WSClientReconnectTests.swift` connects to a closed
-port and expects a second attempt, and expects `stop()` to drop a pending
-retry.
+port and expects a second attempt, expects `stop()` to drop a pending
+retry, and, against a TCP listener that never answers the handshake,
+expects `stop()` to be final (no retry scheduled by the cancelled receive
+task).
 The WireProtocol suite covers:
 
 - Telemetry / heartbeat / status / ack frames decode correctly
@@ -451,8 +453,11 @@ CI:
 - Wire protocol stability — `Snapshot`'s codable shape is 1:1 with the
   server's `internal/lpmeter/snapshot.go`; covered by tests, including
   the `RangeNames.cycle` canary.
-- Reconnect correctness — verified manually by `kill -STOP` /
-  `kill -CONT` on a local server, and by physically pulling the LAN.
+- Reconnect correctness — pinned by `WSClientReconnectTests` (closed port
+  retries; `stop()` is final, also while a handshake is pending). The
+  earlier manual `kill -STOP` / `kill -CONT` check passed only because the
+  wake/active handlers reconnected; the backoff retry itself never ran
+  until the hosted auto-connect change fixed it.
 - Memory growth — no caches, no buffers; `snapshot` is a single struct
   replaced per frame.
 

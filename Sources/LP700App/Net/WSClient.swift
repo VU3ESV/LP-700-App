@@ -103,9 +103,12 @@ actor WSClient {
             while !Task.isCancelled {
                 do {
                     let msg = try await task.receive()
-                    await self?.handle(message: msg)
+                    await self?.handle(message: msg, from: task)
                 } catch {
-                    await self?.handleDisconnect()
+                    // stop() / reconnectNow() cancel this task and drop `task`: the error that
+                    // surfaces here is not a drop to recover from.
+                    guard !Task.isCancelled else { return }
+                    await self?.handleDisconnect(of: task)
                     return
                 }
             }
@@ -123,13 +126,16 @@ actor WSClient {
 
     private func checkHeartbeat() async {
         let elapsed = lastFrameAt.duration(to: .now)
-        if elapsed > .nanoseconds(Int(heartbeatTimeoutNs)), state == .connected {
+        if elapsed > .nanoseconds(Int(heartbeatTimeoutNs)), state == .connected, let task {
             emit(.stateChanged(.reconnecting))
-            await handleDisconnect()
+            await handleDisconnect(of: task)
         }
     }
 
-    private func handle(message: URLSessionWebSocketTask.Message) async {
+    private func handle(message: URLSessionWebSocketTask.Message,
+                        from source: URLSessionWebSocketTask) async {
+        // A frame from a socket that stop() / reconnectNow() already replaced must not revive it.
+        guard source === task else { return }
         lastFrameAt = .now
         if state != .connected {
             emit(.stateChanged(.connected))
@@ -162,7 +168,10 @@ actor WSClient {
         }
     }
 
-    private func handleDisconnect() async {
+    private func handleDisconnect(of failed: URLSessionWebSocketTask) async {
+        // Only the current socket's failure counts. A socket that stop() / reconnectNow()
+        // already dropped or replaced must not schedule a retry for a client nobody wants.
+        guard failed === task else { return }
         task?.cancel(with: .abnormalClosure, reason: nil)
         task = nil
         receiveTask?.cancel()

@@ -1,4 +1,5 @@
 import XCTest
+import Network
 @testable import LP700App
 
 /// WSClient has to keep retrying on its own. Its disconnect handler used to cancel the very
@@ -76,5 +77,38 @@ final class WSClientReconnectTests: XCTestCase {
         let attempts = await collector.value
 
         XCTAssertEqual(attempts, 1, "a stopped client must not retry")
+    }
+
+    /// A TCP listener that accepts but never answers the WebSocket handshake keeps `receive()`
+    /// pending. stop() during that wait cancels the receive task; its error used to be treated
+    /// as a drop, which (with retries working) scheduled a reconnect of a client nobody wanted.
+    func testStopWhileHandshakePendingDoesNotReconnect() async throws {
+        let listener = try NWListener(using: .tcp, on: .any)
+        let ready = expectation(description: "listener ready")
+        listener.newConnectionHandler = { conn in conn.start(queue: .global()) }   // accept, stay silent
+        listener.stateUpdateHandler = { state in if case .ready = state { ready.fulfill() } }
+        listener.start(queue: .global())
+        await fulfillment(of: [ready], timeout: 5)
+        defer { listener.cancel() }
+        let port = try XCTUnwrap(listener.port?.rawValue)
+
+        let client = WSClient(baseURL: URL(string: "http://127.0.0.1:\(port)")!)
+        let collector = Task { () -> [WSClient.ConnectionState] in
+            var states: [WSClient.ConnectionState] = []
+            for await event in client.events {
+                if case .stateChanged(let s) = event { states.append(s) }
+            }
+            return states
+        }
+
+        await client.start()
+        try await Task.sleep(nanoseconds: 400_000_000)     // handshake pending, receive() waiting
+        await client.stop()
+        try await Task.sleep(nanoseconds: 1_200_000_000)   // longer than the first backoff
+        collector.cancel()
+        let states = await collector.value
+
+        XCTAssertEqual(states, [.reconnecting, .disconnected],
+                       "stop() must be final: nothing may follow .disconnected")
     }
 }

@@ -49,9 +49,12 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
   was running on before sleeping, so after a dropped connection, a server restart, or a launch
   before the server was up no retry ever happened: the app showed Offline until the operator
   reconnected by hand. Retries now run on their own task with the intended 0.5–10 s backoff,
-  the badge says Connecting (not Offline) while a retry is pending, and Connected waits for the
-  first frame instead of flashing on every attempt. A regression test connects to a closed port
-  and expects a second attempt.
+  the badge says Reconnecting (not Offline) while a retry is pending, and Connected waits for
+  the first frame instead of flashing on every attempt. `stop()` is final: a socket it cancelled,
+  or one a reconnect replaced, can no longer schedule a retry of its own (or run the disconnect
+  handler twice on the heartbeat path). Regression tests connect to a closed port and expect a
+  second attempt, expect no retry after `stop()`, and expect no retry when `stop()` lands while
+  a handshake is still pending.
 
 ## [0.1.5] — 2026-06-02
 ### Added
