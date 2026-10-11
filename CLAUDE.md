@@ -156,6 +156,15 @@ matching `v0.1.0` tag at the current commit and cuts the same kind
 of public Release the tag-push path does. Tick the **prerelease**
 checkbox to keep the new tag out of "latest".
 
+The plugin carries the same version as the app. `scripts/make-radioplugin.sh`
+and `scripts/package-signed.sh` pass `VERSION` to xcodebuild as
+`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` (the extension's Info.plist
+holds `$(...)` placeholders that xcodegen emits from `Xcode/project.yml`)
+and stamp `plugin.json`'s `__VERSION__` when packaging. After a release,
+update the Suite's `docs/catalog/catalog.json` LP-700 entry (`latestVersion`,
+`url`, `sha256`): the Suite compares the installed plugin's version against
+it. The in-process `LP700Plugin.manifest` version is not used by the Suite.
+
 ## Things to watch out for
 
 - **`auto_channel` vs `channel`.** When `auto_channel == true`, the

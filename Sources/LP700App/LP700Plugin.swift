@@ -9,7 +9,8 @@ public final class LP700Plugin: RadioPlugin {
     public static let manifest: RadioPluginManifest? = RadioPluginManifest(
         id: "lp700",
         name: "LP-700",
-        version: "1.0",
+        version: "1.0",   // in-process manifest only; the shipped .appex / plugin.json carry the
+                          // app's release VERSION (scripts/make-radioplugin.sh, package-signed.sh)
         isolation: .inProcess,                       // first-party, linked into the host
         capabilities: [.networkClient, .notifications],
         systemImage: "gauge.with.dots.needle.bottom.50percent",
