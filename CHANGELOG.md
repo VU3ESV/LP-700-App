@@ -28,6 +28,24 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
   installed binary to about a fifth of the universal release's, for an install that never runs
   on another Mac. Both knobs are new options of `scripts/build-app.sh`; its defaults
   (universal, symbols kept) and therefore the released DMGs are unchanged.
+### Fixed
+- **Hosted plugin connects on its own.** Loaded in the Amateur Radio Suite (the `.appex`),
+  LP-700 now connects to the saved server as soon as it appears and opens the Connect sheet
+  only when no server has been configured yet. Previously it sat disconnected until the
+  operator opened the connection settings and pressed Connect on every launch. The standalone
+  window, the in-process plugin and the hosted extension now share one
+  `MeterViewModel.configuredServerURL` rule for "is a server configured". The hosted
+  extension keeps its URL in its own sandboxed defaults, so the Suite asks once even when the
+  standalone app is already set up. While hosted, the Connect sheet no longer offers **Quit**
+  (it would have terminated the Suite or the extension process), and a connect attempt that is
+  superseded while the saved server is unreachable no longer hijacks the newer connection.
+- **Auto-reconnect actually reconnects.** `WSClient`'s disconnect handler cancelled the task it
+  was running on before sleeping, so after a dropped connection, a server restart, or a launch
+  before the server was up no retry ever happened: the app showed Offline until the operator
+  reconnected by hand. Retries now run on their own task with the intended 0.5–10 s backoff,
+  the badge says Connecting (not Offline) while a retry is pending, and Connected waits for the
+  first frame instead of flashing on every attempt. A regression test connects to a closed port
+  and expects a second attempt.
 
 ## [0.1.5] — 2026-06-02
 ### Added

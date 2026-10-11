@@ -22,10 +22,16 @@ final class MeterViewModel: ObservableObject {
 
     /// True once the user has entered a server URL — drives whether the
     /// connection sheet opens automatically on launch.
-    var hasConfiguredServer: Bool {
-        guard let url = URL(string: serverURLString),
-              url.host?.isEmpty == false else { return false }
-        return true
+    var hasConfiguredServer: Bool { Self.configuredServerURL(serverURLString) != nil }
+
+    /// The server a saved "serverURL" preference points at, or `nil` when nothing usable is
+    /// configured: empty, or no host (`"localhost:8089"` parses as scheme-only). The one rule
+    /// shared by every entry point that connects on launch — `LP700StandaloneApp.bootstrap()`,
+    /// `LP700Plugin.activate()` and the hosted `HostedRootView` — so all three behave alike.
+    nonisolated static func configuredServerURL(_ string: String) -> URL? {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed), let host = url.host, !host.isEmpty else { return nil }
+        return url
     }
 
     // Server log level (read from /api/log-level)
@@ -57,6 +63,9 @@ final class MeterViewModel: ObservableObject {
 
     // Net
     private var ws: WSClient?
+    /// Bumped by every start()/stop(). A start() that is still awaiting the server when a
+    /// newer start()/stop() happens sees a changed value and gives up instead of finishing.
+    private var startGeneration = 0
     private var configClient: ConfigClient?
     private var listenTask: Task<Void, Never>?
 
@@ -64,22 +73,45 @@ final class MeterViewModel: ObservableObject {
 
     init() {}
 
+    deinit {
+        // A replaced model (standalone window re-created, hosted scene rebuilt) must not leave
+        // its socket streaming into a stream nobody reads.
+        listenTask?.cancel()
+        publishTask?.cancel()
+        if let ws { Task { await ws.stop() } }
+    }
+
     // MARK: - Connection management
 
     func start(serverURL: URL) async {
         log.debug("Starting against \(serverURL.absoluteString, privacy: .public)")
+        // The awaits below can take a full URLSession timeout when the saved server is
+        // unreachable. If the operator reconnects elsewhere meanwhile (reconnect() → stop()
+        // + start()), this stale attempt must not finish by installing its own WSClient over
+        // the live one and cancelling the live listen task.
+        // Idempotent: a second start() (window re-created, hosted scene rebuilt, .task re-run)
+        // replaces the previous client instead of leaving it connected as a zombie.
+        await stop()
+        startGeneration &+= 1
+        let generation = startGeneration
         serverURLString = serverURL.absoluteString
         lastConnectError = nil
         let cfg = ConfigClient(baseURL: serverURL)
         configClient = cfg
 
         // Bootstrap from /api/config (best-effort).
-        if let server = try? await cfg.fetchConfig() {
+        let server = try? await cfg.fetchConfig()
+        let level = try? await cfg.fetchLogLevel()
+        guard generation == startGeneration else {
+            log.debug("start(\(serverURL.absoluteString, privacy: .public)) superseded — dropping")
+            return
+        }
+        if let server {
             backend = server.backend
             serverTitle = server.title.isEmpty ? "LP-500 / LP-700" : server.title
             allowControl = server.allowControl
         }
-        if let lvl = try? await cfg.fetchLogLevel() { serverLogLevel = lvl.level }
+        if let level { serverLogLevel = level.level }
 
         let ws = WSClient(baseURL: serverURL)
         self.ws = ws
@@ -87,8 +119,9 @@ final class MeterViewModel: ObservableObject {
         listenTask?.cancel()
         let events = ws.events
         listenTask = Task { [weak self] in
-            guard let self else { return }
             for await event in events {
+                // Re-acquire per event so a replaced model can be released between frames.
+                guard let self else { return }
                 await self.handle(event: event)
             }
         }
@@ -108,6 +141,7 @@ final class MeterViewModel: ObservableObject {
     }
 
     func stop() async {
+        startGeneration &+= 1   // invalidate any start() still awaiting the server
         listenTask?.cancel()
         listenTask = nil
         publishTask?.cancel()

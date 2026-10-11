@@ -72,7 +72,9 @@ LP-700-App/
 │       └── MenuBarContent.swift        # MenuBarExtra label + popover
 ├── Tests/LP700AppTests/
 │   ├── WireProtocolTests.swift         # decode/encode round-trips + RangeNames canary
-│   └── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
+│   ├── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
+│   ├── ServerURLTests.swift            # configuredServerURL rule shared by the 3 entry points
+│   └── WSClientReconnectTests.swift    # retry after a refused connection; stop() drops the retry
 ├── Resources/Info.plist                # bundle template (__VERSION__ substituted)
 ├── scripts/
 │   ├── build-app.sh                    # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed
@@ -235,6 +237,28 @@ checkbox to keep the new tag out of "latest".
   height: 580)`. `.windowResizability(.contentMinSize)` so the user
   can grow the window past the content floor but never shrink it
   below the readable minimum.
+
+- **Three entry points, one connect rule.** The standalone window
+  (`LP700StandaloneApp.bootstrap()`), the in-process plugin
+  (`LP700Plugin.activate()`) and the hosted `.appex` (`HostedRootView` in
+  `LP700Extension.swift`) each have to start the connection themselves;
+  nothing else does. All three go through
+  `MeterViewModel.configuredServerURL(_:)`: saved URL → `vm.start`, none →
+  open the Connect sheet. The hosted path used to skip this, which left the
+  Suite plugin disconnected until the operator pressed Connect every launch.
+  The `.appex` keeps its URL in its own sandbox container
+  (`org.vu3esv.radiosuite.LP700`), separate from the standalone app's
+  domain, so the Suite asks once on its own. `ContentView(hosted: true)`
+  stops the sheet offering Quit there (it would terminate the Suite or the
+  extension process), and `MeterViewModel.start()` drops a stale attempt
+  that a newer start()/stop() superseded while it was waiting on the server.
+- **WSClient retries from its own task.** `handleDisconnect()` runs on the
+  receive or watchdog task it cancels, so the retry sleep lives on a
+  separate `reconnectTask` (cancelled by `stop()` / `reconnectNow()`).
+  `.connected` and the backoff reset happen on the first inbound frame, not
+  on `resume()`, and a pending retry reports `.reconnecting`, not
+  `.disconnected`. `WSClientReconnectTests` pins both; keep it green when
+  touching reconnect logic.
 
 ## Sources / links
 
