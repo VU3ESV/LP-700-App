@@ -391,6 +391,11 @@ Not yet covered (acceptable gap):
 - **Local install** via `scripts/install-local.sh`: builds the native
   slice only with symbols stripped (`ARCHS=native STRIP=1`), then
   ditto-copies into `/Applications` with quarantine xattr stripped.
+- **Plugin** (`.appex` + `.radioplugin`) built by `scripts/make-radioplugin.sh`
+  and embedded by `scripts/package-signed.sh`; both stamp the app's `VERSION`
+  into the extension's Info.plist (`MARKETING_VERSION` /
+  `CURRENT_PROJECT_VERSION`) and into `plugin.json`, so the plugin never
+  reports a version other than the release it ships with.
 - **Distribution**: ad-hoc-signed only. Users do
   `xattr -dr com.apple.quarantine` once after install. Notarization
   is a TODO (requires Apple Developer Program enrollment).

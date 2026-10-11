@@ -28,6 +28,12 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
   installed binary to about a fifth of the universal release's, for an install that never runs
   on another Mac. Both knobs are new options of `scripts/build-app.sh`; its defaults
   (universal, symbols kept) and therefore the released DMGs are unchanged.
+- **The plugin reports the app's release version.** The `.appex`'s `CFBundleShortVersionString` /
+  `CFBundleVersion` and `plugin.json`'s `version` were fixed at 1.0 / 1.0.0 while the app shipped
+  as 0.1.x. Both are now stamped with the release `VERSION` by `scripts/make-radioplugin.sh` and
+  `scripts/package-signed.sh`, so the Suite's plugin manager, `pluginkit` and System Settings show
+  the same version as the app. Suite catalog note: the LP-700 entry's `latestVersion` (1.0.0) has
+  to move to the app's scheme, or the Suite will keep reporting an update as available.
 ### Fixed
 - **Hosted plugin connects on its own.** Loaded in the Amateur Radio Suite (the `.appex`),
   LP-700 now connects to the saved server as soon as it appears and opens the Connect sheet
