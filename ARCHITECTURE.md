@@ -221,9 +221,10 @@ Specifics worth calling out:
 - `KeypadView` is the inline keypad row inside the bottom
   `CompactPanel`: Range step, Alarm toggle, LCD Mode step, Resync.
   Disabled when `!allowControl || connection != .connected || setupOpen`.
-  Range and Alarm additionally grey out when `auto_channel == true`
-  (the LP-500/700 firmware ignores those soft-button verbs in
-  CH-Auto mode; the server NACKs them).
+  Range and Alarm additionally grey out when `auto_channel == true`,
+  here and in `ControlsCard` (the LP-500 user guide says neither can
+  be changed in CH Auto, and a 2026-10-13 bench test agrees; the
+  server no longer NACKs them, so the gate lives in the app).
 - `SetupOverlay` is rendered into the same panel area when
   `vm.setupOpen` is true, replacing `PowerSWRView`. Same compositional
   choice as the embedded web client (which switches to a `<dialog>`).

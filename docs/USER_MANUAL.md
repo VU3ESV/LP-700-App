@@ -119,11 +119,15 @@ indicators that are always visible on the front panel.
 - **Alarm pill** — Disabled / **Armed** (green) / **TRIPPED** (red).
   Click to toggle on/off via `alarm_toggle`. Numeric thresholds are
   set on the meter LCD's Setup screens and can't be transmitted via
-  USB, so the app shows state only, not setpoint.
+  USB, so the app shows state only, not setpoint. Greyed out while
+  the channel is on Auto (see Range below).
 - **Channel pills** — `CH Auto` plus `CH 1`/`2`/`3`/`4`. The
   currently active slot is highlighted in the system tint.
 - **Range** — `Range: 100W` (or 5W/10W/25W/50W/250W/500W/1K/2.5K/5K/10K/auto).
-  Click to step through the cycle via `range_step`.
+  Click to step through the cycle via `range_step`. Greyed out while
+  the channel is on **Auto**: the meter doesn't allow Range or Alarm
+  to change in CH Auto, so pick CH 1–4 first. The current range still
+  shows.
 - **Peak / Avg / Tune** — three buttons that mirror the meter's F5
   cycle. The active mode is highlighted; clicking another sends
   `peak_toggle` with the corresponding value (0/1/2).
@@ -157,6 +161,9 @@ The bottom row is the control surface:
 | **Alarm** | `alarm_toggle` (flips the alarm enabled/disabled) | ⌘A |
 | **LCD Mode** | `mode_step` (cycles the meter's LCD page) | ⌘M |
 | **Resync** | Asks the server to push the latest snapshot | ⌘Y |
+
+With the channel on **Auto**, Range and Alarm are greyed out and read
+"Locked (auto-CH)": the meter doesn't allow either to change in CH Auto.
 
 If the server was started with `allow_control = false`, the keypad
 shows "Read-only" on the right and all four buttons are disabled.
