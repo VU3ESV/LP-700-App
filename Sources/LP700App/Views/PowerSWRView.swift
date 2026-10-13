@@ -47,7 +47,7 @@ struct ControlsModel: Equatable {
     var rangeDisabled: Bool
     var peakDisabled: Bool
     var alarmDisabled: Bool
-    var rangeNote: String?
+    var lockNote: String?
 }
 
 struct ReadingValue: Equatable {
@@ -108,17 +108,15 @@ extension PowerSWRModel {
                 alarmLabel: alarmLabel(snapshot),
                 alarmTint: alarmTint(snapshot),
                 channelDisabled: baseDisabled,
-                // Range is per-channel on the meter, but F3 / range_step
-                // is accepted by the firmware in pwr/swr mode regardless
-                // of auto-channel state — pressing it cycles the
-                // currently auto-locked channel's range. (Earlier this
-                // was gated with `|| autoCh` based on a misread of an
-                // empirical probe; corrected 2026-05-16 against the
-                // bench LP-700.)
-                rangeDisabled: baseDisabled,
+                // Range and Alarm are per-channel on the meter, and the
+                // LP-500 user guide v5.4 says of both: "This choice can't
+                // be changed when the CH button is in Auto." Bench-tested
+                // 2026-10-13: F3 / F4 do nothing in CH Auto. (A 2026-05-17
+                // change ungated Range here on a misquote of that page.)
+                rangeDisabled: baseDisabled || autoCh,
                 peakDisabled: baseDisabled,
                 alarmDisabled: baseDisabled || autoCh,
-                rangeNote: nil
+                lockNote: autoCh ? "Range and Alarm can't be changed in CH Auto. Pick CH 1–4." : nil
             ),
             statusMessage: snapshot?.statusMessage ?? ""
         )
@@ -531,10 +529,10 @@ private struct ControlsCard: View {
             }
             // Always reserve space for the lock note so the card height
             // doesn't change when the user cycles between CH A and CH 1–4.
-            Text(model.rangeNote ?? " ")
+            Text(model.lockNote ?? " ")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
-                .opacity(model.rangeNote == nil ? 0 : 1)
+                .opacity(model.lockNote == nil ? 0 : 1)
                 .lineLimit(1)
         }
         .padding(8)
