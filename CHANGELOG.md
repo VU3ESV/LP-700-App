@@ -35,6 +35,12 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
   the same version as the app. Suite catalog note: the LP-700 entry's `latestVersion` (1.0.0) has
   to move to the app's scheme, or the Suite will keep reporting an update as available.
 ### Fixed
+- **Range greys out in CH Auto again.** The Controls card's **Rng** button stayed clickable
+  with the meter's channel on Auto, but the meter ignores Range (and Alarm) changes there:
+  the LP-500 user guide says of both "This choice can't be changed when the CH button is in
+  Auto", and a bench test on the LP-700 agrees. **Rng** now greys out alongside **Alm**,
+  matching the keypad, and a grey note under the Controls card says to pick CH 1–4. This
+  undoes the 0.1.2 change that enabled Range in CH Auto on a misreading of the manual.
 - **Hosted plugin connects on its own.** Loaded in the Amateur Radio Suite (the `.appex`),
   LP-700 now connects to the saved server as soon as it appears and opens the Connect sheet
   only when no server has been configured yet. Previously it sat disconnected until the
