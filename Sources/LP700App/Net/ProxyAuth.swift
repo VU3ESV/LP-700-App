@@ -24,6 +24,20 @@ struct ProxyCredentials: Equatable, CustomStringConvertible, CustomDebugStringCo
 }
 
 enum ProxyAuth {
+    /// A password as typed or pasted into the Proxy login field, ready to store:
+    /// leading / trailing line breaks dropped (a copy from `security … -w` or a
+    /// terminal brings a trailing newline, which made the stored login wrong for
+    /// every app sharing the Keychain item). Nil when what is left is empty or
+    /// still contains a control character: a paste accident, not a password.
+    /// Spaces are kept.
+    static func normalizedPassword(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .newlines)
+        guard !trimmed.isEmpty,
+              !trimmed.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        else { return nil }
+        return trimmed
+    }
+
     /// True for `https` / `wss`: the only schemes a login may travel over.
     static func isSecure(_ url: URL) -> Bool {
         switch url.scheme?.lowercased() {

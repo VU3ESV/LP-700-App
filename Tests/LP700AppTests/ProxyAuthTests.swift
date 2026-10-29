@@ -23,6 +23,27 @@ final class ProxyAuthTests: XCTestCase {
                        "Basic dGVzdDoxMjPCow==")
     }
 
+    // MARK: - Pasted passwords (a trailing newline broke the shared login on 2026-10-29)
+
+    func testNormalizedPasswordDropsTrailingNewlineFromAPaste() {
+        XCTAssertEqual(ProxyAuth.normalizedPassword("s3cret\n"), "s3cret")
+        XCTAssertEqual(ProxyAuth.normalizedPassword("s3cret\r\n"), "s3cret")
+        XCTAssertEqual(ProxyAuth.normalizedPassword("\ns3cret\n\n"), "s3cret")
+    }
+
+    func testNormalizedPasswordKeepsSpacesAndPlainPasswords() {
+        XCTAssertEqual(ProxyAuth.normalizedPassword("s3cret"), "s3cret")
+        XCTAssertEqual(ProxyAuth.normalizedPassword(" pass phrase "), " pass phrase ")
+    }
+
+    func testNormalizedPasswordRefusesControlCharactersAndEmpty() {
+        XCTAssertNil(ProxyAuth.normalizedPassword("first\nsecond"))   // two lines pasted
+        XCTAssertNil(ProxyAuth.normalizedPassword("tab\there"))
+        XCTAssertNil(ProxyAuth.normalizedPassword("\u{7F}x"))
+        XCTAssertNil(ProxyAuth.normalizedPassword("\n"))
+        XCTAssertNil(ProxyAuth.normalizedPassword(""))
+    }
+
     func testAttachedOverHTTPSAndWSS() {
         for s in ["https://192.168.86.43:8089/api/config", "wss://192.168.86.43:8089/ws",
                   "HTTPS://stationmonitor2.local:8089/healthz"] {
