@@ -76,6 +76,7 @@ LP-700-App/
 │   ├── WireProtocolTests.swift         # decode/encode round-trips + RangeNames canary
 │   ├── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
 │   ├── ServerURLTests.swift            # configuredServerURL rule shared by the 3 entry points
+│   ├── ControlsGateTests.swift         # Range / Alarm greyed out in CH Auto, usable on CH 1–4
 │   ├── WSClientReconnectTests.swift    # retry after a refused connection; stop() drops the retry
 │   └── ProxyAuthTests.swift            # header only over TLS, base64, 401 required/rejected, local 401 stub
 ├── Resources/Info.plist                # bundle template (__VERSION__ substituted)
@@ -190,15 +191,19 @@ it. The in-process `LP700Plugin.manifest` version is not used by the Suite.
   the banner when empty — don't show a stale message.
 - **The server fans out a snapshot on connect.** Don't issue `resync`
   preemptively on connect — the hub already does it.
-- **Range and Alarm are per-channel.** The LP-500 user-guide v5.4
-  page 4 documents: "The selection is indexed to the current channel
-  selection and is saved in memory" for both Range and Alarm. The
-  meter's front-panel F3 / F4 buttons cycle the *auto-locked
-  channel's* per-channel setting in CH Auto, so the App's
-  `range_step` / `alarm_toggle` verbs are enabled in any channel
-  state. (Earlier code gated these in CH Auto based on a misread
-  empirical probe — see LP-700-Server PR #3 for the corresponding
-  server-side revert.)
+- **Range and Alarm are locked in CH Auto.** Both are stored per
+  channel, and the LP-500 user guide v5.4 (Power/SWR mode, Range and
+  Alarm buttons) ends each paragraph with "This choice can't be
+  changed when the CH button is in Auto." A bench test on the LP-700
+  (2026-10-13) agrees: F3 / F4 do nothing in CH Auto. So the Controls
+  card's `Rng` / `Alm` and the keypad's Range / Alarm are greyed out
+  whenever `auto_channel == true`, with a secondary-grey note under the
+  Controls card; CH and Mode stay usable so the operator can leave
+  Auto. `ControlsGateTests` pins this. History: the 2026-05-09 gate was
+  right; a 2026-05-17 "misread probe" correction misquoted the manual,
+  ungated Range in the Controls card and reverted the server's NACK
+  (LP-700-Server PR #3), so the server currently forwards these verbs
+  in CH Auto and the meter ignores them. Don't ungate them again.
 - **Single Controls card with cycle-on-press buttons.** As of the v0.3
   redesign, `PowerSWRView` no longer has separate Channel pills, a
   Range card, a Peak-mode segmented control, and an Alarm card. They

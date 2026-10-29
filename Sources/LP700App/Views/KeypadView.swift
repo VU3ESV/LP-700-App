@@ -8,6 +8,9 @@ struct KeypadView: View {
 
     var body: some View {
         let disabled = !vm.allowControl || vm.connection != .connected || vm.setupOpen
+        // The meter doesn't let Range or Alarm change while CH is in Auto
+        // (LP-500 user guide v5.4; bench-tested 2026-10-13), so grey them
+        // out rather than send verbs the firmware ignores.
         let autoCh = vm.snapshot?.autoChannel == true
 
         HStack(spacing: 10) {
