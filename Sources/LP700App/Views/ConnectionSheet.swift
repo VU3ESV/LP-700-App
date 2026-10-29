@@ -13,6 +13,12 @@ struct ConnectionSheet: View {
     @State private var urlString: String = ""
     @State private var testStatus: TestStatus = .idle
     @State private var testTask: Task<Void, Never>?
+    // Proxy login. The stored password is never read back into the UI: the field only
+    // ever holds what the operator types, and is cleared once saved.
+    @State private var proxyUser: String = "operator"
+    @State private var proxyPassword: String = ""
+    @State private var proxyAccount: String?    // username of the stored login, nil = none
+    @State private var proxyMessage: String?
     var onDismiss: () -> Void
 
     enum TestStatus: Equatable {
@@ -30,6 +36,7 @@ struct ConnectionSheet: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 fieldSection
+                proxySection
                 hintSection
             }
             .padding(20)
@@ -43,6 +50,8 @@ struct ConnectionSheet: View {
             urlString = vm.serverURLString.nilIfEmpty
                 ?? persistedURL.nilIfEmpty
                 ?? "http://localhost:8089"
+            proxyAccount = vm.storedProxyAccount
+            if let proxyAccount { proxyUser = proxyAccount }
         }
     }
 
@@ -97,13 +106,68 @@ struct ConnectionSheet: View {
         }
     }
 
+    private var proxySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Proxy login")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let proxyAccount {
+                    Label("Stored for \(proxyAccount)", systemImage: "key.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                } else {
+                    Text("No login stored")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("Username", text: $proxyUser)
+                    .textFieldStyle(.roundedBorder)
+                    .disableAutocorrection(true)
+                    .frame(width: 140)
+                SecureField(proxyAccount == nil ? "Password" : "New password", text: $proxyPassword)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            HStack(spacing: 8) {
+                Button("Save to Keychain", action: saveProxyLogin)
+                    .disabled(!canSaveProxyLogin)
+                Button("Remove", action: removeProxyLogin)
+                    .disabled(proxyAccount == nil)
+                Spacer()
+                if let proxyMessage {
+                    Text(proxyMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            if let error = vm.lastConnectError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("For a server behind the shack's TLS proxy (https://…). Sent as HTTP Basic auth over https/wss only, never over plain http. Kept in the login Keychain as \"\(ProxyKeychain.service)\".")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     @ViewBuilder
     private var hintSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Tip")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
-            Text("On the server host: `lp700-server` listens on port 8089 by default (LP-100A-Server uses 8088). Use http://localhost:8089 if running on this Mac, or http://raspberrypi.local:8089 for a Pi on the LAN.")
+            Text("On the server host: `lp700-server` listens on port 8089 by default (LP-100A-Server uses 8088). Use http://localhost:8089 if running on this Mac, or http://raspberrypi.local:8089 for a Pi on the LAN. Behind the shack's TLS proxy use https://host:8089 and save the proxy login.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -151,7 +215,8 @@ struct ConnectionSheet: View {
             Label(msg, systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
-                .lineLimit(1)
+                .lineLimit(2)
+                .help(msg)
         }
     }
 
@@ -165,6 +230,41 @@ struct ConnectionSheet: View {
             switch result {
             case .ok: testStatus = .ok
             case .failure(let msg): testStatus = .failure(msg)
+            }
+        }
+    }
+
+    private var canSaveProxyLogin: Bool {
+        let user = proxyUser.trimmingCharacters(in: .whitespaces)
+        // RFC 7617: the user-id cannot contain a colon.
+        return !user.isEmpty && !user.contains(":") && !proxyPassword.isEmpty
+    }
+
+    private func saveProxyLogin() {
+        let login = ProxyCredentials(username: proxyUser.trimmingCharacters(in: .whitespaces),
+                                     password: proxyPassword)
+        let model = vm
+        Task { @MainActor in
+            do {
+                try await model.saveProxyLogin(login)
+                proxyPassword = ""
+                proxyAccount = login.username
+                proxyMessage = "Saved. The next connection uses it."
+            } catch {
+                proxyMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func removeProxyLogin() {
+        let model = vm
+        Task { @MainActor in
+            do {
+                try await model.removeProxyLogin()
+                proxyAccount = nil
+                proxyMessage = "Removed from the Keychain."
+            } catch {
+                proxyMessage = error.localizedDescription
             }
         }
     }

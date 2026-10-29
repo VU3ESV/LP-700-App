@@ -313,6 +313,10 @@ of its sandbox container (`org.vu3esv.radiosuite.LP700`). Keys:
 | `UpdateCheck.lastCheck`  | Double | time of the last *successful* update check |
 | `UpdateCheck.skippedTag` | String | release tag the user chose to skip |
 
+The proxy login is **not** in `UserDefaults`: it is a Keychain generic
+password (service `ShackProxy`, account = username) shared by all three
+entry points, read at connect time and cached in memory (`ProxyLoginStore`).
+
 Notably **not** persisted: `setupOpen`, sticky peaks, `serverLogLevel`
 (the server itself doesn't persist this between restarts so we don't
 either), `backend` (re-fetched on connect).
@@ -325,6 +329,7 @@ either), `backend` (re-fetched on connect).
 | `/api/config` fetch fails                        | Falls back to `backend = "unknown"`, `allow_control = true`, default title  | Low |
 | `/api/log-level` fetch fails                     | Picker shows last-known value (initial `"error"`); POST is fire-and-forget  | Low |
 | WS drops mid-session                             | `handleDisconnect` → retry on its own task with backoff; badge stays yellow (Reconnecting) until the next attempt's first frame       | Low |
+| Proxy answers 401 (WS upgrade or HTTP)           | `ProxyAuthError.loginRequired` (no `Authorization` sent) or `.loginRejected` (sent); shown as `lastConnectError` in the meter pane, Connect sheet and Preferences; WS retry waits ≥ 30 s | Low — fix the login and Connect |
 | Bad JSON frame                                   | `JSONDecoder` throws; emit `parseError`; OSLog warning; no disconnect       | Low |
 | Unknown frame `type`                             | `ServerFrame.unknown(type:)`; ignored                                       | Low |
 | `ack ok:false`                                   | Status banner shown; auto-dismisses after 5 s                               | Med — banner doesn't tie back to the issuing button |
@@ -352,6 +357,11 @@ port and expects a second attempt, expects `stop()` to drop a pending
 retry, and, against a TCP listener that never answers the handshake,
 expects `stop()` to be final (no retry scheduled by the cancelled receive
 task).
+`Tests/LP700AppTests/ProxyAuthTests.swift` pins the proxy-login rule
+(`Authorization: Basic` for https/wss only, base64 per RFC 7617, no `Origin`)
+and the 401 mapping, and against a local stub that answers 401 checks that
+plain ws/http requests carry no login and that a 401 is not retried at the
+normal backoff.
 The WireProtocol suite covers:
 
 - Telemetry / heartbeat / status / ack frames decode correctly

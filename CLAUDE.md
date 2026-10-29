@@ -57,7 +57,9 @@ LP-700-App/
 │   ├── Net/
 │   │   ├── WireProtocol.swift          # Snapshot, ServerFrame, ClientFrame
 │   │   ├── WSClient.swift              # actor; reconnect + heartbeat watchdog
-│   │   └── ConfigClient.swift          # actor; /api/config + /api/log-level
+│   │   ├── ConfigClient.swift          # actor; /api/config + /api/log-level
+│   │   ├── ProxyAuth.swift             # Basic-auth header rule (https/wss only) + 401 → ProxyAuthError
+│   │   └── ProxyKeychain.swift         # "ShackProxy" Keychain item + in-memory ProxyLoginStore
 │   ├── ViewModels/
 │   │   └── MeterViewModel.swift        # @MainActor source-of-truth
 │   ├── Views/
@@ -74,7 +76,8 @@ LP-700-App/
 │   ├── WireProtocolTests.swift         # decode/encode round-trips + RangeNames canary
 │   ├── UpdateCheckerTests.swift        # version compare, automatic-check rule, dev skip
 │   ├── ServerURLTests.swift            # configuredServerURL rule shared by the 3 entry points
-│   └── WSClientReconnectTests.swift    # retry after a refused connection; stop() drops the retry
+│   ├── WSClientReconnectTests.swift    # retry after a refused connection; stop() drops the retry
+│   └── ProxyAuthTests.swift            # header only over TLS, base64, 401 required/rejected, local 401 stub
 ├── Resources/Info.plist                # bundle template (__VERSION__ substituted)
 ├── scripts/
 │   ├── build-app.sh                    # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed
@@ -270,6 +273,21 @@ it. The in-process `LP700Plugin.manifest` version is not used by the Suite.
   longer current, so `stop()` is final and a replaced socket cannot
   schedule a retry. `WSClientReconnectTests` pins all of this; keep it
   green when touching reconnect logic.
+- **Proxy login is https-only.** The server may sit behind a Caddy TLS proxy
+  (Basic auth, realm `StationMonitor2`; 401 without a valid login, 403 for a
+  foreign `Origin`). Every request to the server — the WS upgrade
+  (`WSClient.upgradeRequest`), `ConfigClient`, the `/healthz` probe — goes
+  through `ProxyAuth.authorize`, which adds `Authorization` only for
+  `https`/`wss`; never add a request path that bypasses it, and never set
+  `Origin`. The login is the Keychain generic password `ShackProxy`
+  (account = username), read by `ProxyLoginStore` in `MeterViewModel.start()`
+  (https URLs only) and cached for the process; an attribute-only check runs
+  first so no item means no Keychain prompt. A 401 becomes
+  `ProxyAuthError.loginRequired` / `.loginRejected` from whether the request
+  carried `Authorization`; `WSClient` emits `.authFailed` and waits ≥ 30 s.
+  Trust is the system's (Shack CA in the Keychain): no pinning, no custom trust
+  code, no ATS exceptions. Tests inject credentials; don't read the real item
+  from tests (it raises a macOS prompt).
 
 ## Sources / links
 

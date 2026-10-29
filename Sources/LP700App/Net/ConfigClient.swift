@@ -19,15 +19,22 @@ struct LogLevelConfig: Codable, Equatable {
 
 actor ConfigClient {
     private var baseURL: URL
+    /// Proxy login, attached over https only (see `ProxyAuth`).
+    private var credentials: ProxyCredentials?
     private let session: URLSession
 
-    init(baseURL: URL, session: URLSession = .shared) {
+    init(baseURL: URL, credentials: ProxyCredentials? = nil, session: URLSession = .shared) {
         self.baseURL = baseURL
+        self.credentials = credentials
         self.session = session
     }
 
     func setBaseURL(_ url: URL) {
         baseURL = url
+    }
+
+    func setCredentials(_ credentials: ProxyCredentials?) {
+        self.credentials = credentials
     }
 
     func fetchConfig() async throws -> ServerConfig {
@@ -46,8 +53,9 @@ actor ConfigClient {
         let url = baseURL.appendingPathComponent(path)
         var req = URLRequest(url: url)
         req.cachePolicy = .reloadIgnoringLocalCacheData
+        ProxyAuth.authorize(&req, credentials: credentials)
         let (data, resp) = try await session.data(for: req)
-        try checkOK(resp)
+        try Self.checkOK(resp, for: req)
         return try JSONDecoder().decode(T.self, from: data)
     }
 
@@ -57,14 +65,19 @@ actor ConfigClient {
         req.httpMethod = "POST"
         req.addValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(body)
+        ProxyAuth.authorize(&req, credentials: credentials)
         let (data, resp) = try await session.data(for: req)
-        try checkOK(resp)
+        try Self.checkOK(resp, for: req)
         return try JSONDecoder().decode(R.self, from: data)
     }
 
-    private func checkOK(_ resp: URLResponse) throws {
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
+    /// Throws `ProxyAuthError` for a 401 (decided by what `request` carried) and
+    /// `URLError(.badServerResponse)` for any other non-2xx.
+    static func checkOK(_ resp: URLResponse, for request: URLRequest) throws {
+        guard let http = resp as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        if let authError = ProxyAuthError(statusCode: http.statusCode, request: request) {
+            throw authError
         }
+        guard (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
     }
 }

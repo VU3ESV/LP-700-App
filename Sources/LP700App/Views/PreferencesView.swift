@@ -32,6 +32,13 @@ struct PreferencesView: View {
                 statusBadge
             }
 
+            if let error = vm.lastConnectError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             LabeledContent("Backend") {
                 Text(vm.backend.uppercased())
                     .font(.system(.body, design: .monospaced))

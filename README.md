@@ -112,6 +112,23 @@ To change servers later: click the shield icon in the toolbar, choose
 **File → Connect to Server… (⌘K)**, or open **Preferences (⌘,) → Server
 → Change Server…**. To disconnect cleanly, hit **⇧⌘D**.
 
+**Behind the shack's TLS proxy** (Caddy with HTTP Basic auth in front of
+`lp700-server`), use `https://<host>:8089`, e.g. `https://192.168.86.43:8089`;
+the app derives `wss://…/ws`. Plain `http://…:8089` stops working once the
+proxy is in place. In the same sheet, under **Proxy login**, enter the
+username (default `operator`) and password and click **Save to Keychain**
+(**Remove** deletes it). The login is a generic password in your login
+Keychain, service `ShackProxy`, account = the username, so one made with
+`security add-generic-password -s ShackProxy -a operator -w` works too. The
+app sends it as `Authorization: Basic …` on the WebSocket upgrade and every
+HTTP request to the server, **only over https/wss — never over plain
+http/ws**, even when a login is stored. A 401 shows as *Proxy login
+required* (none sent) or *Proxy login rejected* (wrong login), and the
+retry then waits at least 30 s. The proxy's certificate must be trusted by
+macOS (install the Shack CA in the Keychain); the app does no pinning. macOS
+may ask once whether LP-700-App may use the `ShackProxy` item: choose
+**Always Allow** (an ad-hoc-signed rebuild can ask again).
+
 Loaded in the Amateur Radio Suite, the plugin behaves the same way: the
 first time it appears it asks for the server URL, and from then on it
 connects on its own. The Suite plugin keeps its own copy of the URL (the
@@ -246,13 +263,13 @@ LP-700-App/
 ├── Sources/LP700App/
 │   ├── App.swift            # @main, scenes (WindowGroup, Settings, MenuBarExtra)
 │   ├── UpdateChecker.swift  # GitHub release check (Check for Updates…)
-│   ├── Net/                 # WireProtocol, WSClient, ConfigClient
+│   ├── Net/                 # WireProtocol, WSClient, ConfigClient, ProxyAuth, ProxyKeychain
 │   ├── ViewModels/          # MeterViewModel
 │   ├── Views/               # ContentView, PowerSWRView, KeypadView,
 │   │                        # ConnectionSheet, PreferencesView, SetupOverlay,
 │   │                        # Panel
 │   └── MenuBar/             # MenuBarLabel + MenuBarContent popover
-├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker, configuredServerURL, WS reconnect
+├── Tests/LP700AppTests/     # WireProtocol round-trips, UpdateChecker, configuredServerURL, WS reconnect, proxy auth
 ├── Resources/Info.plist     # bundle template (VERSION substituted at build time)
 ├── scripts/
 │   ├── build-app.sh         # release .app (universal; ARCHS=native, STRIP=1), ad-hoc signed
@@ -279,9 +296,10 @@ pill makes it obvious the data isn't from a real meter.
 
 ## Limitations
 
-- **No authentication.** The server is LAN-only by design; this client
-  follows suit. For remote access, front the server with Tailscale or
-  WireGuard.
+- **No authentication of its own.** The server is LAN-only by design. The
+  app does speak HTTP Basic auth to an authenticating TLS reverse proxy in
+  front of it (see [Configure](#configure)); for remote access, front the
+  server with Tailscale or WireGuard.
 - **No bargraphs (yet).** v0 is large numeric readouts only. The
   bargraph + sticky-peak-marker visuals from LP-100A-App will arrive
   in v0.2.
