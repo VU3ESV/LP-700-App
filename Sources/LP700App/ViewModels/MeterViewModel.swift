@@ -197,7 +197,14 @@ final class MeterViewModel: ObservableObject {
 
     /// Save to the Keychain (update, else add). The live connection's next attempt and the
     /// next start() use it.
-    func saveProxyLogin(_ credentials: ProxyCredentials) async throws {
+    enum ProxyLoginError: LocalizedError {
+        case invalidPassword
+        var errorDescription: String? { "The password contains a line break or control character. Paste just the password." }
+    }
+
+    func saveProxyLogin(_ login: ProxyCredentials) async throws {
+        guard let password = ProxyAuth.normalizedPassword(login.password) else { throw ProxyLoginError.invalidPassword }
+        let credentials = ProxyCredentials(username: login.username, password: password)
         try ProxyLoginStore.save(credentials)
         await ws?.setCredentials(credentials)
         await configClient?.setCredentials(credentials)

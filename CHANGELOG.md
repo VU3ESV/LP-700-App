@@ -7,6 +7,13 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
 
 ## [Unreleased]
 
+### Fixed
+- **Proxy login: a pasted password no longer keeps its trailing line break.** Save now drops
+  leading/trailing newlines and refuses other control characters. Before, a copy from a terminal
+  stored a wrong password in the shared `ShackProxy` Keychain item and every app got
+  "Proxy login rejected".
+
+
 ### Added
 - **Proxy login** for a server behind an authenticating TLS reverse proxy (Caddy, HTTP
   Basic auth): connect to `https://<host>:8089` and save the login under **Proxy login** in
