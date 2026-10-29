@@ -18,6 +18,8 @@ final class MeterViewModel: ObservableObject {
     @Published var serverTitle: String = "LP-500 / LP-700"
     @Published var serverURLString: String = ""
     @Published var connectionSheetOpen: Bool = false
+    /// Why the server refused us (today: the proxy's 401), shown in the meter pane, the
+    /// Connect sheet and Preferences. Cleared by the next frame, start() and disconnect().
     @Published var lastConnectError: String?
 
     /// True once the user has entered a server URL — drives whether the
@@ -96,12 +98,21 @@ final class MeterViewModel: ObservableObject {
         let generation = startGeneration
         serverURLString = serverURL.absoluteString
         lastConnectError = nil
-        let cfg = ConfigClient(baseURL: serverURL)
+        // The proxy login is read here, at connect time, and only for a TLS URL: over
+        // http/ws it is never sent, so there is no reason to touch the Keychain.
+        let credentials = ProxyAuth.isSecure(serverURL) ? await ProxyLoginStore.credentials() : nil
+        let cfg = ConfigClient(baseURL: serverURL, credentials: credentials)
         configClient = cfg
 
-        // Bootstrap from /api/config (best-effort).
-        let server = try? await cfg.fetchConfig()
-        let level = try? await cfg.fetchLogLevel()
+        // Bootstrap from /api/config (best-effort; a 401 is reported, the WS then retries).
+        var server: ServerConfig?
+        var authError: ProxyAuthError?
+        do {
+            server = try await cfg.fetchConfig()
+        } catch let error as ProxyAuthError {
+            authError = error
+        } catch {}
+        let level = authError == nil ? try? await cfg.fetchLogLevel() : nil
         guard generation == startGeneration else {
             log.debug("start(\(serverURL.absoluteString, privacy: .public)) superseded — dropping")
             return
@@ -112,8 +123,9 @@ final class MeterViewModel: ObservableObject {
             allowControl = server.allowControl
         }
         if let level { serverLogLevel = level.level }
+        if let authError { lastConnectError = authError.localizedDescription }
 
-        let ws = WSClient(baseURL: serverURL)
+        let ws = WSClient(baseURL: serverURL, credentials: credentials)
         self.ws = ws
         await ws.start()
         listenTask?.cancel()
@@ -136,6 +148,7 @@ final class MeterViewModel: ObservableObject {
     func disconnect() async {
         await stop()
         connection = .disconnected
+        lastConnectError = nil
         snapshot = nil
         peakSwr = 1.0
     }
@@ -161,16 +174,39 @@ final class MeterViewModel: ObservableObject {
         guard let url = URL(string: urlString), url.host?.isEmpty == false else {
             return .failure("Invalid URL")
         }
-        let probe = url.appendingPathComponent("/healthz")
+        var probe = URLRequest(url: url.appendingPathComponent("/healthz"))
+        let credentials = ProxyAuth.isSecure(url) ? await ProxyLoginStore.credentials() : nil
+        ProxyAuth.authorize(&probe, credentials: credentials)
         do {
-            let (_, resp) = try await URLSession.shared.data(from: probe)
-            if let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
-                return .ok
-            }
+            let (_, resp) = try await URLSession.shared.data(for: probe)
+            try ConfigClient.checkOK(resp, for: probe)
+            return .ok
+        } catch let authError as ProxyAuthError {
+            return .failure(authError.localizedDescription)
+        } catch let urlError as URLError where urlError.code == .badServerResponse {
             return .failure("Server returned non-2xx")
         } catch {
             return .failure(error.localizedDescription)
         }
+    }
+
+    // MARK: - Proxy login
+
+    /// Username of the login stored in the Keychain, if any. Never decrypts the password.
+    var storedProxyAccount: String? { ProxyLoginStore.storedAccount }
+
+    /// Save to the Keychain (update, else add). The live connection's next attempt and the
+    /// next start() use it.
+    func saveProxyLogin(_ credentials: ProxyCredentials) async throws {
+        try ProxyLoginStore.save(credentials)
+        await ws?.setCredentials(credentials)
+        await configClient?.setCredentials(credentials)
+    }
+
+    func removeProxyLogin() async throws {
+        try ProxyLoginStore.remove()
+        await ws?.setCredentials(nil)
+        await configClient?.setCredentials(nil)
     }
 
     // MARK: - Commands
@@ -245,6 +281,9 @@ final class MeterViewModel: ObservableObject {
         switch event {
         case .stateChanged(let s):
             connection = s
+            if s == .connected { lastConnectError = nil }
+        case .authFailed(let error):
+            lastConnectError = error.localizedDescription
         case .frame(let frame):
             applyFrame(frame)
         case .parseError(let msg):

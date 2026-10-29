@@ -71,6 +71,16 @@ first time it runs (no `serverURL` configured yet):
    immediate snapshot, so your readouts populate within ~one poll
    cycle (~40 ms at default config).
 
+**Behind the shack's TLS proxy**, enter `https://<host>:8089` (for
+example `https://192.168.86.43:8089`), then fill in **Proxy login** in the
+same sheet — username (default `operator`) and password — and click **Save
+to Keychain**. The login is stored in your login Keychain as `ShackProxy`
+and is sent only over https, never over plain http. The sheet shows whether
+a login is stored (never the password); **Remove** deletes it. macOS may ask
+once whether the app may use the Keychain item — choose **Always Allow**.
+The proxy's certificate must be trusted by macOS (Shack CA installed in the
+Keychain).
+
 If the server is unreachable, the connection badge in the toolbar
 will show **Reconnecting** (yellow) and retry with exponential
 backoff (0.5 s → 10 s) until either the server appears or you change
@@ -351,6 +361,14 @@ app" — you don't need to keep the main window in front to monitor.
   to a LAN interface by design. If you're on a coffee-shop wifi and
   the server is at home, you'll need a VPN (Tailscale, WireGuard) to
   reach it.
+
+### "Proxy login required" / "Proxy login rejected"
+
+The TLS proxy in front of the server answered 401, and the app now waits
+at least 30 s between attempts. *Required*: no login was sent — save one
+under **Proxy login** (⌘K) and check the URL starts with `https://` (a
+login is never sent over http). *Rejected*: a login was sent but is wrong —
+save the right password. Click **Connect** to retry at once.
 
 ### Readouts show — but values are flat zeros
 

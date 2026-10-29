@@ -8,6 +8,14 @@ auto-cut on merge to `main` (tags `vX.Y.Z`).
 ## [Unreleased]
 
 ### Added
+- **Proxy login** for a server behind an authenticating TLS reverse proxy (Caddy, HTTP
+  Basic auth): connect to `https://<host>:8089` and save the login under **Proxy login** in
+  the Connect sheet (login Keychain, generic password, service `ShackProxy`, account = the
+  username). `Authorization: Basic …` goes on the WebSocket upgrade and every request to
+  the server, only over https/wss, never over plain http/ws. A 401 reads *Proxy login
+  required* (none sent) or *Proxy login rejected* (wrong login), in the meter pane, the
+  sheet and Preferences, and the retry waits at least 30 s. No `Origin` header, no
+  certificate pinning: the proxy's CA must be trusted by macOS.
 - **Update check** against this repo's GitHub releases: about 10 s after launch, then at
   most once a day (one anonymous `api.github.com` request), the standalone app says when a
   newer release is out — Download (opens the release page) / Skip This Version / Remind Me
